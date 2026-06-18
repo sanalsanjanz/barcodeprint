@@ -1,0 +1,17 @@
+{
+  "name": "printtest",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "bwip-js": "^4.11.1",
+    "express": "^5.2.1",
+    "pdfkit": "^0.19.1"
+  }
+}

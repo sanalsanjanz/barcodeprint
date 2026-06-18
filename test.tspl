@@ -1,0 +1,29 @@
+for (let i = 0; i < items.length; i += 2) {
+  tspl += `
+CLS
+`;
+
+  // Left label
+  const left = items[i];
+
+  tspl += `
+TEXT 10,10,"2",0,1,1,"${left.itemName.substring(0,18)}"
+TEXT 10,35,"2",0,1,1,"Rs.${left.price}"
+BARCODE 10,55,"128",30,1,0,1,1,"${left.barcode}"
+`;
+
+  // Right label if exists
+  if (i + 1 < items.length) {
+    const right = items[i + 1];
+
+    tspl += `
+TEXT 450,10,"2",0,1,1,"${right.itemName.substring(0,18)}"
+TEXT 450,35,"2",0,1,1,"Rs.${right.price}"
+BARCODE 450,55,"128",30,1,0,1,1,"${right.barcode}"
+`;
+  }
+
+  tspl += `
+PRINT 1
+`;
+}
