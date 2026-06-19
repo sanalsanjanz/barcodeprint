@@ -214,40 +214,32 @@ REFERENCE 0,0
     }
 
     try {
-      // First attempt: Write directly to the printer share from Dart itself (no extra files)
-      final printerShare = File(r'\\localhost\bacode');
-      try {
-        await printerShare.writeAsString(tspl);
-        print('Printed successfully directly to network share.');
-        return 0;
-      } catch (directWriteError) {
-        print('Direct write failed, falling back to temp file CMD copy... ($directWriteError)');
-        
-        // Fallback: Create a temporary file instead of a permanent C:\PrintTest folder
-        final tempDir = Directory.systemTemp;
-        final tempFile = File('${tempDir.path}\\temp_label_${DateTime.now().millisecondsSinceEpoch}.tspl');
-        await tempFile.writeAsString(tspl);
+      // Create a temporary file in the system temp directory
+      final tempDir = Directory.systemTemp;
+      final tempFile = File('${tempDir.path}\\temp_label_${DateTime.now().millisecondsSinceEpoch}.tspl');
+      await tempFile.writeAsString(tspl);
 
-        final result = await Process.run('cmd', [
-          '/c',
-          'copy',
-          '/b',
-          tempFile.path,
-          r'\\localhost\bacode',
-        ]);
-        
-        // Clean up the temporary file immediately
-        if (await tempFile.exists()) {
-          await tempFile.delete();
-        }
-
-        print('Print command exit code: ${result.exitCode}');
-        print('Print stdout: ${result.stdout}');
-        if (result.stderr.toString().isNotEmpty) {
-          print('Print stderr: ${result.stderr}');
-        }
-        return result.exitCode;
+      // We MUST use cmd /c copy /b because that's how Windows accurately sends raw TSPL commands to printer shares.
+      // We wrap the temp file path in quotes in case the user's Temp folder path contains spaces.
+      final result = await Process.run('cmd', [
+        '/c',
+        'copy',
+        '/b',
+        '"${tempFile.path}"',
+        r'\\localhost\bacode',
+      ]);
+      
+      // Clean up the temporary file immediately
+      if (await tempFile.exists()) {
+        await tempFile.delete();
       }
+
+      print('Print command exit code: ${result.exitCode}');
+      print('Print stdout: ${result.stdout}');
+      if (result.stderr.toString().isNotEmpty) {
+        print('Print stderr: ${result.stderr}');
+      }
+      return result.exitCode;
     } catch (e) {
       print('Printer error: $e');
       return -1;

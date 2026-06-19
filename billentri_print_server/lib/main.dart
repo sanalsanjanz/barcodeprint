@@ -14,9 +14,8 @@ void main() async {
   WindowOptions windowOptions = const WindowOptions(
     size: Size(1000, 700),
     center: true,
-    backgroundColor: Colors.transparent,
     skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.hidden,
+    titleBarStyle: TitleBarStyle.normal,
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -26,7 +25,11 @@ void main() async {
 
   // Start the HTTP Print Server
   final printServer = PrintServer(port: 5000);
-  await printServer.start();
+  try {
+    await printServer.start();
+  } catch (e) {
+    print('Failed to start print server (port might be in use): $e');
+  }
 
   runApp(MyApp(printServer: printServer));
 }
@@ -58,11 +61,15 @@ class _MyAppState extends State<MyApp> {
     // Usually we need an actual icon in assets. Let's provide a dummy path or use empty for now.
     // In production, ensure you add assets/app_icon.ico and add to pubspec.yaml
     
-    await _systemTray.initSystemTray(
-      title: "BillEntri Print Server",
-      iconPath: '', // Will show default if empty or fallback
-      toolTip: "BillEntri Print Server Running",
-    );
+    try {
+      await _systemTray.initSystemTray(
+        title: "BillEntri Print Server",
+        iconPath: '', // Will show default if empty or fallback
+        toolTip: "BillEntri Print Server Running",
+      );
+    } catch (e) {
+      print('Warning: System tray failed to initialize (likely due to missing iconPath): $e');
+    }
 
     await _menu.buildFrom([
       MenuItemLabel(
