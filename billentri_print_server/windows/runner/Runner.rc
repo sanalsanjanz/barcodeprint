@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "billentri_print_server" "\0"
+            VALUE "CompanyName", "com.svimers.billentribarcode" "\0"
+            VALUE "FileDescription", "BillEntri - Barcode Service" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "billentri_print_server" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "billentri_print_server.exe" "\0"
-            VALUE "ProductName", "billentri_print_server" "\0"
+            VALUE "InternalName", "billentri_barcode_service" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.svimers. All rights reserved." "\0"
+            VALUE "OriginalFilename", "billentri_barcode_service.exe" "\0"
+            VALUE "ProductName", "BillEntri - Barcode Service" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

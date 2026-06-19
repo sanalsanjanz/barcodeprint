@@ -230,7 +230,7 @@ REFERENCE 0,0
         '/c',
         'copy',
         '/b',
-        '"${tempFile.path}"',
+        tempFile.path,
         r'\\localhost\bacode',
       ]);
       
