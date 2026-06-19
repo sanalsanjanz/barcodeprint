@@ -214,26 +214,40 @@ REFERENCE 0,0
     }
 
     try {
-      final dir = Directory('C:\\\\PrintTest');
-      if (!dir.existsSync()) {
-        dir.createSync(recursive: true);
-      }
-      final filePath = 'C:\\\\PrintTest\\\\label.tspl';
-      File(filePath).writeAsStringSync(tspl);
+      // First attempt: Write directly to the printer share from Dart itself (no extra files)
+      final printerShare = File(r'\\localhost\bacode');
+      try {
+        await printerShare.writeAsString(tspl);
+        print('Printed successfully directly to network share.');
+        return 0;
+      } catch (directWriteError) {
+        print('Direct write failed, falling back to temp file CMD copy... ($directWriteError)');
+        
+        // Fallback: Create a temporary file instead of a permanent C:\PrintTest folder
+        final tempDir = Directory.systemTemp;
+        final tempFile = File('${tempDir.path}\\temp_label_${DateTime.now().millisecondsSinceEpoch}.tspl');
+        await tempFile.writeAsString(tspl);
 
-      final result = await Process.run('cmd', [
-        '/c',
-        'copy',
-        '/b',
-        filePath,
-        r'\\\\localhost\\bacode',
-      ]);
-      print('Print command exit code: \${result.exitCode}');
-      print('Print stdout: \${result.stdout}');
-      if (result.stderr.toString().isNotEmpty) {
-        print('Print stderr: \${result.stderr}');
+        final result = await Process.run('cmd', [
+          '/c',
+          'copy',
+          '/b',
+          tempFile.path,
+          r'\\localhost\bacode',
+        ]);
+        
+        // Clean up the temporary file immediately
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+
+        print('Print command exit code: ${result.exitCode}');
+        print('Print stdout: ${result.stdout}');
+        if (result.stderr.toString().isNotEmpty) {
+          print('Print stderr: ${result.stderr}');
+        }
+        return result.exitCode;
       }
-      return result.exitCode;
     } catch (e) {
       print('Printer error: $e');
       return -1;
