@@ -200,35 +200,52 @@ REFERENCE 0,0
   String generateLabelTspl(PrintItem item, int startX) {
     StringBuffer buf = StringBuffer();
     final centerX = startX + 155 + item.marginLeft.toInt();
-    int currentY = 10 + item.marginTop.toInt();
+    // Start a bit lower for default top padding
+    int currentY = 15 + item.marginTop.toInt();
 
-    // 1. Company Name
-    final companyName = item.companyName;
-    int compX = getCenteredX(companyName, centerX, item.companyFont, item.companyFontSize);
-    buf.write('TEXT $compX,$currentY,"${item.companyFont}",0,${item.companyFontSize},${item.companyFontSize},"$companyName"\n');
-    buf.write('TEXT ${compX + 1},$currentY,"${item.companyFont}",0,${item.companyFontSize},${item.companyFontSize},"$companyName"\n'); // Bold effect
-    currentY += 26 + item.rowGap.toInt();
-
-    // 2. Item Name
-    final nameLines = splitText(item.itemName, 34);
-    for (var line in nameLines) {
-      if (line.isNotEmpty) {
-        buf.write('TEXT ${getCenteredX(line, centerX, item.itemFont, item.itemFontSize)},$currentY,"${item.itemFont}",0,${item.itemFontSize},${item.itemFontSize},"$line"\n');
-        currentY += 16 + item.rowGap.toInt();
-      }
+    // 1. Company Name (Max 2 lines to avoid overflow)
+    // Font 2 can fit roughly 26 chars in ~290 dots width
+    final companyLines = splitText(item.companyName, 26);
+    for (var line in companyLines) {
+      int compX = getCenteredX(line, centerX, item.companyFont, item.companyFontSize);
+      buf.write('TEXT $compX,$currentY,"${item.companyFont}",0,${item.companyFontSize},${item.companyFontSize},"$line"\n');
+      buf.write('TEXT ${compX + 1},$currentY,"${item.companyFont}",0,${item.companyFontSize},${item.companyFontSize},"$line"\n'); // Bold effect
+      currentY += 26 + item.rowGap.toInt();
     }
 
-    // 3. Barcode
-    int barcodeHeight = 40;
-    int narrow = item.barcode.length > 10 ? 1 : 2;
-    int wide = 2;
-    int estWidth = (11 * item.barcode.length + 35) * narrow;
-    int barcodeX = centerX - (estWidth ~/ 2);
-    if (barcodeX < startX + 10) barcodeX = startX + 10;
+    // 2. Item Name (Max 2 lines)
+    // Font 1 can fit roughly 36 chars in ~290 dots width
+    final nameLines = splitText(item.itemName, 36);
+    for (var line in nameLines) {
+      buf.write('TEXT ${getCenteredX(line, centerX, item.itemFont, item.itemFontSize)},$currentY,"${item.itemFont}",0,${item.itemFontSize},${item.itemFontSize},"$line"\n');
+      currentY += 16 + item.rowGap.toInt();
+    }
+
+    // 3. Barcode (Taller & properly centered)
+    int barcodeHeight = 60; // Increased height for easier scanning
     
-    currentY += 5; // Padding before barcode
+    // Accurately estimate Code 128 Auto width to ensure proper centering
+    int digitsCount = 0, otherCount = 0;
+    for (int i = 0; i < item.barcode.length; i++) {
+      int code = item.barcode.codeUnitAt(i);
+      if (code >= 48 && code <= 57) digitsCount++;
+      else otherCount++;
+    }
+    // Subset C encodes 2 digits per char. 
+    int estimatedChars128 = (digitsCount ~/ 2) + (digitsCount % 2) + otherCount;
+    int estWidthNarrow1 = 11 * (estimatedChars128 + 2) + 13;
+
+    // Use wide bars if they fit within our ~290 dot padding boundary
+    int narrow = (estWidthNarrow1 * 2 < 280) ? 2 : 1;
+    int wide = narrow == 1 ? 2 : 3;
+
+    int estWidth = estWidthNarrow1 * narrow;
+    int barcodeX = centerX - (estWidth ~/ 2);
+    if (barcodeX < startX + 15) barcodeX = startX + 15; // Left padding constraint
+    
+    currentY += 8; // Extra padding before barcode
     buf.write('BARCODE $barcodeX,$currentY,"128",$barcodeHeight,0,0,$narrow,$wide,"${item.barcode}"\n');
-    currentY += barcodeHeight + 8;
+    currentY += barcodeHeight + 10;
 
     // 4. Barcode Text
     buf.write('TEXT ${getCenteredX(item.barcode, centerX, item.barcodeTextFont, item.barcodeTextFontSize)},$currentY,"${item.barcodeTextFont}",0,${item.barcodeTextFontSize},${item.barcodeTextFontSize},"${item.barcode}"\n');
@@ -249,13 +266,18 @@ REFERENCE 0,0
   }
 
   List<String> splitText(String text, int maxLength) {
-    if (text.length <= maxLength) return [text, ""];
+    if (text.isEmpty) return [];
+    if (text.length <= maxLength) return [text];
+    
     int splitIndex = text.lastIndexOf(" ", maxLength);
-    if (splitIndex == -1) splitIndex = maxLength;
+    if (splitIndex == -1 || splitIndex == 0) splitIndex = maxLength;
+    
     final line1 = text.substring(0, splitIndex).trim();
     String line2 = text.substring(splitIndex).trim();
-    if (line2.length > maxLength + 5) {
-      line2 = line2.substring(0, maxLength + 5);
+    
+    // Add ellipsis if line 2 overflows, ensuring max 2 lines
+    if (line2.length > maxLength) {
+      line2 = line2.substring(0, maxLength - 2).trimRight() + "..";
     }
     return [line1, line2];
   }
