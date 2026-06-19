@@ -40,6 +40,7 @@ dependencies:
   shelf: ^1.4.2
   shelf_router: ^1.1.4
   launch_at_startup: ^0.5.1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

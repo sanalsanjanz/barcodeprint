@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
 // import '../server/print_server.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -92,23 +93,43 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        serverUrl,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'monospace',
-                          fontSize: 14,
+                    InkWell(
+                      onTap: () async {
+                        final testUrl = Uri.parse('$serverUrl/test');
+                        if (await canLaunchUrl(testUrl)) {
+                          await launchUrl(testUrl);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 16,
                         ),
-                        textAlign: TextAlign.center,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.white.withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              serverUrl,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'monospace',
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.open_in_browser,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -131,28 +152,16 @@ class DashboardScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: const [
-                              Icon(Icons.print, color: brandColor, size: 28),
-                              SizedBox(width: 12),
-                              Text(
-                                'Printer Setup Guide',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1F2937),
-                                ),
-                              ),
-                            ],
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.grey),
-                            tooltip: 'Hide to System Tray',
-                            onPressed: () {
-                              windowManager.hide();
-                            },
+                        children: const [
+                          Icon(Icons.print, color: brandColor, size: 28),
+                          SizedBox(width: 12),
+                          Text(
+                            'Printer Setup Guide',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1F2937),
+                            ),
                           ),
                         ],
                       ),
@@ -184,8 +193,8 @@ class DashboardScreen extends StatelessWidget {
                       _buildStep(
                         5,
                         'Give it the share name',
-                        'bacode and click Apply.',
-                        highlightText: 'bacode',
+                        'barcode and click Apply.',
+                        highlightText: 'barcode',
                       ),
                       const SizedBox(height: 16),
                       _buildStep(
