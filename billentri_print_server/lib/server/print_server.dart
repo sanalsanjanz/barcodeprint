@@ -236,7 +236,7 @@ REFERENCE 0,0
         'copy',
         '/b',
         tempFile.path,
-        r'\\localhost\bacode',
+        r'\\localhost\barcode',
       ]);
       
       if (await tempFile.exists()) {
