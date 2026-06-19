@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:window_manager/window_manager.dart';
@@ -214,11 +216,67 @@ class DashboardScreen extends StatelessWidget {
                             size: 20,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'Currently Supported on Windows Only. The server is running in the background.',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
+                          Expanded(
+                            child: Text(
+                              'Currently Supported on Windows Only. The server is running in the background.',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              final payload = [
+                                {
+                                  "companyName": "BillEntri",
+                                  "itemName": "Apple",
+                                  "barcode": "108011520",
+                                  "price": 100.00,
+                                  "currency": "Rs.",
+                                  "marginLeft": 15,
+                                  "marginTop": 15,
+                                  "rowGap": 3,
+                                  "columnGap": 0
+                                },
+                                {
+                                  "companyName": "BillEntri",
+                                  "itemName": "Orange",
+                                  "barcode": "115545420",
+                                  "price": 180.00,
+                                  "currency": "Rs.",
+                                  "marginLeft": 15,
+                                  "marginTop": 15,
+                                  "rowGap": 3,
+                                  "columnGap": 0
+                                }
+                              ];
+                              
+                              try {
+                                final client = HttpClient();
+                                final request = await client.postUrl(Uri.parse('http://$localIp:$port/print-bulk'));
+                                request.headers.set('content-type', 'application/json');
+                                request.write(jsonEncode(payload));
+                                final response = await request.close();
+                                if (response.statusCode == 200 && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Test print sent successfully!'), backgroundColor: Colors.green),
+                                  );
+                                }
+                              } catch(e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Test print failed: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.print, size: 18),
+                            label: const Text('Test Print'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: brandColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
                           ),
                         ],

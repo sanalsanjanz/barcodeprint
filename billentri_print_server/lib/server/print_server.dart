@@ -157,7 +157,9 @@ REFERENCE 0,0
 
   // --- TSPL HELPER FUNCTIONS ---
   int getCharWidth(String fontSize) {
-    return fontSize == "3" ? 16 : 11;
+    if (fontSize == "3") return 16;
+    if (fontSize == "2") return 11;
+    return 8; // Font 1
   }
 
   int getCenteredX(String text, int centerX, String fontSize) {
@@ -170,22 +172,24 @@ REFERENCE 0,0
     final centerX = startX + 155 + item.marginLeft.toInt();
     int currentY = 10 + item.marginTop.toInt();
 
-    // 1. Company Name
-    final companyName = item.companyName;
-    buf.write('TEXT ${getCenteredX(companyName, centerX, "3")},$currentY,"3",0,1,1,"$companyName"\n');
-    currentY += 30 + item.rowGap.toInt();
+    // 1. Company Name (Font 2, Bold, Uppercase)
+    final companyName = item.companyName.toUpperCase();
+    int compX = getCenteredX(companyName, centerX, "2");
+    buf.write('TEXT $compX,$currentY,"2",0,1,1,"$companyName"\n');
+    buf.write('TEXT ${compX + 1},$currentY,"2",0,1,1,"$companyName"\n'); // Bold effect
+    currentY += 26 + item.rowGap.toInt();
 
-    // 2. Item Name
-    final nameLines = splitText(item.itemName, 24);
+    // 2. Item Name (Font 1, Split up to 34 chars)
+    final nameLines = splitText(item.itemName, 34);
     for (var line in nameLines) {
       if (line.isNotEmpty) {
-        buf.write('TEXT ${getCenteredX(line, centerX, "2")},$currentY,"2",0,1,1,"$line"\n');
-        currentY += 22 + item.rowGap.toInt();
+        buf.write('TEXT ${getCenteredX(line, centerX, "1")},$currentY,"1",0,1,1,"$line"\n');
+        currentY += 16 + item.rowGap.toInt();
       }
     }
 
     // 3. Barcode
-    int barcodeHeight = 45;
+    int barcodeHeight = 40;
     int narrow = item.barcode.length > 10 ? 1 : 2;
     int wide = 2;
     int estWidth = (11 * item.barcode.length + 35) * narrow;
@@ -198,11 +202,14 @@ REFERENCE 0,0
 
     // 4. Barcode Text
     buf.write('TEXT ${getCenteredX(item.barcode, centerX, "2")},$currentY,"2",0,1,1,"${item.barcode}"\n');
-    currentY += 20 + item.rowGap.toInt();
+    currentY += 22 + item.rowGap.toInt();
 
-    // 5. Price
-    final priceStr = '${item.currency}:${item.price.toStringAsFixed(3)}'; 
-    buf.write('TEXT ${getCenteredX(priceStr, centerX, "2")},$currentY,"2",0,1,1,"$priceStr"\n');
+    // 5. Price (Font 2, Bold)
+    final currency = item.currency.replaceAll('₹', 'Rs.');
+    final priceStr = '$currency ${item.price.toStringAsFixed(2)}'; 
+    int priceX = getCenteredX(priceStr, centerX, "2");
+    buf.write('TEXT $priceX,$currentY,"2",0,1,1,"$priceStr"\n');
+    buf.write('TEXT ${priceX + 1},$currentY,"2",0,1,1,"$priceStr"\n'); // Bold effect
 
     return buf.toString();
   }
