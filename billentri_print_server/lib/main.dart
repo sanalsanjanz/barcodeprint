@@ -26,7 +26,7 @@ void main() async {
   // Retry mechanism for server startup
   bool serverStarted = false;
   int retryCount = 0;
-  while (!serverStarted && retryCount < 5) {
+  while (!serverStarted && retryCount < 30) {
     try {
       await printServer.start();
       serverStarted = true;
@@ -34,7 +34,7 @@ void main() async {
     } catch (e) {
       retryCount++;
       print('Failed to start print server (attempt $retryCount): $e');
-      if (retryCount < 5) {
+      if (retryCount < 30) {
         await Future.delayed(const Duration(seconds: 2));
       }
     }

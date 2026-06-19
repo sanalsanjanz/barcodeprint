@@ -92,12 +92,16 @@ class PrintServer {
   PrintServer({this.port = 5050});
 
   static Future<String> getLocalIpAddress() async {
-    for (var interface in await NetworkInterface.list()) {
-      for (var addr in interface.addresses) {
-        if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
-          return addr.address;
+    try {
+      for (var interface in await NetworkInterface.list()) {
+        for (var addr in interface.addresses) {
+          if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
+            return addr.address;
+          }
         }
       }
+    } catch (e) {
+      print('Warning: Could not get local IP address (network might not be ready): $e');
     }
     return '127.0.0.1';
   }
