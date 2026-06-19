@@ -9,12 +9,16 @@ import 'ui/dashboard.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Setup auto-start on Windows boot
-  launchAtStartup.setup(
-    appName: 'BillEntriBarcodeService',
-    appPath: Platform.resolvedExecutable,
-  );
-  await launchAtStartup.enable();
+  // Setup auto-start on Windows boot (wrapped in try-catch so it doesn't crash if OS denies permission)
+  try {
+    launchAtStartup.setup(
+      appName: 'BillEntriBarcodeService',
+      appPath: Platform.resolvedExecutable,
+    );
+    await launchAtStartup.enable();
+  } catch (e) {
+    print('Warning: Failed to configure launch at startup: $e');
+  }
 
   // Initialize window manager
   await windowManager.ensureInitialized();
