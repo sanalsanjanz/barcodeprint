@@ -1,0 +1,124 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:system_tray/system_tray.dart';
+import 'server/print_server.dart';
+import 'ui/dashboard.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize window manager
+  await windowManager.ensureInitialized();
+
+  WindowOptions windowOptions = const WindowOptions(
+    size: Size(1000, 700),
+    center: true,
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.hidden,
+  );
+
+  await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
+
+  // Start the HTTP Print Server
+  final printServer = PrintServer(port: 5000);
+  await printServer.start();
+
+  runApp(MyApp(printServer: printServer));
+}
+
+class MyApp extends StatefulWidget {
+  final PrintServer printServer;
+
+  const MyApp({Key? key, required this.printServer}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final AppWindow _appWindow = AppWindow();
+  final SystemTray _systemTray = SystemTray();
+  final Menu _menu = Menu();
+
+  @override
+  void initState() {
+    super.initState();
+    initSystemTray();
+  }
+
+  Future<void> initSystemTray() async {
+    String path = Platform.isWindows ? 'assets/app_icon.ico' : 'assets/app_icon.png';
+    
+    // We try to initialize with icon but if asset not present it might fail. 
+    // Usually we need an actual icon in assets. Let's provide a dummy path or use empty for now.
+    // In production, ensure you add assets/app_icon.ico and add to pubspec.yaml
+    
+    await _systemTray.initSystemTray(
+      title: "BillEntri Print Server",
+      iconPath: '', // Will show default if empty or fallback
+      toolTip: "BillEntri Print Server Running",
+    );
+
+    await _menu.buildFrom([
+      MenuItemLabel(
+        label: 'Show Dashboard',
+        onClicked: (menuItem) async {
+          await windowManager.show();
+          await windowManager.focus();
+          await windowManager.setSkipTaskbar(false);
+        },
+      ),
+      MenuItemLabel(
+        label: 'Hide to System Tray',
+        onClicked: (menuItem) async {
+          await windowManager.hide();
+          await windowManager.setSkipTaskbar(true);
+        },
+      ),
+      MenuSeparator(),
+      MenuItemLabel(
+        label: 'Exit',
+        onClicked: (menuItem) async {
+          await widget.printServer.stop();
+          exit(0);
+        },
+      ),
+    ]);
+
+    await _systemTray.setContextMenu(_menu);
+
+    _systemTray.registerSystemTrayEventHandler((eventName) {
+      if (eventName == kSystemTrayEventClick) {
+        windowManager.show();
+        windowManager.focus();
+        windowManager.setSkipTaskbar(false);
+      } else if (eventName == kSystemTrayEventRightClick) {
+        _systemTray.popUpContextMenu();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'BillEntri Print Server',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primaryColor: const Color(0xFF016F42),
+        fontFamily: 'Inter',
+      ),
+      home: DashboardScreen(port: widget.printServer.port, localIp: widget.printServer.localIp ?? '127.0.0.1'),
+    );
+  }
+
+  @override
+  void dispose() {
+    widget.printServer.stop();
+    super.dispose();
+  }
+}
