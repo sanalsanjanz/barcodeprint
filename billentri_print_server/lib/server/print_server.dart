@@ -172,14 +172,14 @@ REFERENCE 0,0
 
     // 1. Company Name
     final companyName = item.companyName;
-    buf.write('TEXT ${getCenteredX(companyName, centerX, "3")},$currentY,"3",0,1,1,"$companyName"\\n');
+    buf.write('TEXT ${getCenteredX(companyName, centerX, "3")},$currentY,"3",0,1,1,"$companyName"\n');
     currentY += 30 + item.rowGap.toInt();
 
     // 2. Item Name
     final nameLines = splitText(item.itemName, 24);
     for (var line in nameLines) {
       if (line.isNotEmpty) {
-        buf.write('TEXT ${getCenteredX(line, centerX, "2")},$currentY,"2",0,1,1,"$line"\\n');
+        buf.write('TEXT ${getCenteredX(line, centerX, "2")},$currentY,"2",0,1,1,"$line"\n');
         currentY += 22 + item.rowGap.toInt();
       }
     }
@@ -193,16 +193,16 @@ REFERENCE 0,0
     if (barcodeX < startX + 10) barcodeX = startX + 10;
     
     currentY += 5; // Padding before barcode
-    buf.write('BARCODE $barcodeX,$currentY,"128",$barcodeHeight,0,0,$narrow,$wide,"${item.barcode}"\\n');
+    buf.write('BARCODE $barcodeX,$currentY,"128",$barcodeHeight,0,0,$narrow,$wide,"${item.barcode}"\n');
     currentY += barcodeHeight + 8;
 
     // 4. Barcode Text
-    buf.write('TEXT ${getCenteredX(item.barcode, centerX, "2")},$currentY,"2",0,1,1,"${item.barcode}"\\n');
+    buf.write('TEXT ${getCenteredX(item.barcode, centerX, "2")},$currentY,"2",0,1,1,"${item.barcode}"\n');
     currentY += 20 + item.rowGap.toInt();
 
     // 5. Price
     final priceStr = '${item.currency}:${item.price.toStringAsFixed(3)}'; 
-    buf.write('TEXT ${getCenteredX(priceStr, centerX, "2")},$currentY,"2",0,1,1,"$priceStr"\\n');
+    buf.write('TEXT ${getCenteredX(priceStr, centerX, "2")},$currentY,"2",0,1,1,"$priceStr"\n');
 
     return buf.toString();
   }
