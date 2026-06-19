@@ -36,7 +36,7 @@ void main() async {
   });
 
   // Start the HTTP Print Server
-  final printServer = PrintServer(port: 5000);
+  final printServer = PrintServer(port: 5050);
   try {
     await printServer.start();
   } catch (e) {

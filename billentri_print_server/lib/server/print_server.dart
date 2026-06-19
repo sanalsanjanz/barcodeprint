@@ -60,7 +60,7 @@ class PrintServer {
 
   String? localIp;
 
-  PrintServer({this.port = 5000});
+  PrintServer({this.port = 5050});
 
   static Future<String> getLocalIpAddress() async {
     for (var interface in await NetworkInterface.list()) {
