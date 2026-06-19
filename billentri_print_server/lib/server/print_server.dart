@@ -20,6 +20,17 @@ class PrintItem {
   final double rowGap;
   final double columnGap;
   final int barcodeRow;
+  final int decimalPlaces;
+
+  // Font settings
+  final String companyFont;
+  final int companyFontSize;
+  final String itemFont;
+  final int itemFontSize;
+  final String barcodeTextFont;
+  final int barcodeTextFontSize;
+  final String priceFont;
+  final int priceFontSize;
 
   PrintItem({
     required this.companyName,
@@ -34,6 +45,15 @@ class PrintItem {
     this.rowGap = 0.0,
     this.columnGap = 0.0,
     this.barcodeRow = 1,
+    this.decimalPlaces = 3,
+    this.companyFont = "2",
+    this.companyFontSize = 1,
+    this.itemFont = "1",
+    this.itemFontSize = 1,
+    this.barcodeTextFont = "1",
+    this.barcodeTextFontSize = 1,
+    this.priceFont = "2",
+    this.priceFontSize = 1,
   });
 
   factory PrintItem.fromJson(Map<String, dynamic> json) {
@@ -50,6 +70,15 @@ class PrintItem {
       rowGap: (json['rowGap'] ?? 0).toDouble(),
       columnGap: (json['columnGap'] ?? 0).toDouble(),
       barcodeRow: json['barcodeRow'] ?? 1,
+      decimalPlaces: json['decimalPlaces'] ?? 3,
+      companyFont: json['companyFont']?.toString() ?? "2",
+      companyFontSize: json['companyFontSize'] ?? 1,
+      itemFont: json['itemFont']?.toString() ?? "1",
+      itemFontSize: json['itemFontSize'] ?? 1,
+      barcodeTextFont: json['barcodeTextFont']?.toString() ?? "1",
+      barcodeTextFontSize: json['barcodeTextFontSize'] ?? 1,
+      priceFont: json['priceFont']?.toString() ?? "2",
+      priceFontSize: json['priceFontSize'] ?? 1,
     );
   }
 }
@@ -156,14 +185,15 @@ REFERENCE 0,0
   }
 
   // --- TSPL HELPER FUNCTIONS ---
-  int getCharWidth(String fontSize) {
-    if (fontSize == "3") return 16;
-    if (fontSize == "2") return 11;
-    return 8; // Font 1
+  int getCharWidth(String fontSize, int fontSizeMultiplier) {
+    int baseWidth = 8;
+    if (fontSize == "3") baseWidth = 16;
+    if (fontSize == "2") baseWidth = 11;
+    return baseWidth * fontSizeMultiplier;
   }
 
-  int getCenteredX(String text, int centerX, String fontSize) {
-    final textWidth = text.length * getCharWidth(fontSize);
+  int getCenteredX(String text, int centerX, String fontSize, int fontSizeMultiplier) {
+    final textWidth = text.length * getCharWidth(fontSize, fontSizeMultiplier);
     return (centerX - textWidth / 2).floor();
   }
 
@@ -172,18 +202,18 @@ REFERENCE 0,0
     final centerX = startX + 155 + item.marginLeft.toInt();
     int currentY = 10 + item.marginTop.toInt();
 
-    // 1. Company Name (Font 2, Bold, Uppercase)
-    final companyName = item.companyName.toUpperCase();
-    int compX = getCenteredX(companyName, centerX, "2");
-    buf.write('TEXT $compX,$currentY,"2",0,1,1,"$companyName"\n');
-    buf.write('TEXT ${compX + 1},$currentY,"2",0,1,1,"$companyName"\n'); // Bold effect
+    // 1. Company Name
+    final companyName = item.companyName;
+    int compX = getCenteredX(companyName, centerX, item.companyFont, item.companyFontSize);
+    buf.write('TEXT $compX,$currentY,"${item.companyFont}",0,${item.companyFontSize},${item.companyFontSize},"$companyName"\n');
+    buf.write('TEXT ${compX + 1},$currentY,"${item.companyFont}",0,${item.companyFontSize},${item.companyFontSize},"$companyName"\n'); // Bold effect
     currentY += 26 + item.rowGap.toInt();
 
-    // 2. Item Name (Font 1, Split up to 34 chars)
+    // 2. Item Name
     final nameLines = splitText(item.itemName, 34);
     for (var line in nameLines) {
       if (line.isNotEmpty) {
-        buf.write('TEXT ${getCenteredX(line, centerX, "1")},$currentY,"1",0,1,1,"$line"\n');
+        buf.write('TEXT ${getCenteredX(line, centerX, item.itemFont, item.itemFontSize)},$currentY,"${item.itemFont}",0,${item.itemFontSize},${item.itemFontSize},"$line"\n');
         currentY += 16 + item.rowGap.toInt();
       }
     }
@@ -201,15 +231,19 @@ REFERENCE 0,0
     currentY += barcodeHeight + 8;
 
     // 4. Barcode Text
-    buf.write('TEXT ${getCenteredX(item.barcode, centerX, "2")},$currentY,"2",0,1,1,"${item.barcode}"\n');
-    currentY += 22 + item.rowGap.toInt();
+    buf.write('TEXT ${getCenteredX(item.barcode, centerX, item.barcodeTextFont, item.barcodeTextFontSize)},$currentY,"${item.barcodeTextFont}",0,${item.barcodeTextFontSize},${item.barcodeTextFontSize},"${item.barcode}"\n');
+    currentY += 18 + item.rowGap.toInt();
 
     // 5. Price (Font 2, Bold)
     final currency = item.currency.replaceAll('₹', 'Rs.');
-    final priceStr = '$currency ${item.price.toStringAsFixed(2)}'; 
-    int priceX = getCenteredX(priceStr, centerX, "2");
-    buf.write('TEXT $priceX,$currentY,"2",0,1,1,"$priceStr"\n');
-    buf.write('TEXT ${priceX + 1},$currentY,"2",0,1,1,"$priceStr"\n'); // Bold effect
+    String currencyPrefix = currency.endsWith(':') ? currency : '$currency:';
+    if (currency.isEmpty) currencyPrefix = '';
+    
+    // Use dynamic decimal places (defaults to 3)
+    final priceStr = '$currencyPrefix${item.price.toStringAsFixed(item.decimalPlaces)}'; 
+    int priceX = getCenteredX(priceStr, centerX, item.priceFont, item.priceFontSize);
+    buf.write('TEXT $priceX,$currentY,"${item.priceFont}",0,${item.priceFontSize},${item.priceFontSize},"$priceStr"\n');
+    buf.write('TEXT ${priceX + 1},$currentY,"${item.priceFont}",0,${item.priceFontSize},${item.priceFontSize},"$priceStr"\n'); // Bold effect
 
     return buf.toString();
   }
