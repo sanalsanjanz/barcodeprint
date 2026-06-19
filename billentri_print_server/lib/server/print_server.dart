@@ -145,10 +145,18 @@ REFERENCE 0,0
         }
 
         print("Printing \${items.length} labels");
-        await sendToPrinter(tspl);
+        final printResult = await sendToPrinter(tspl);
 
+        // We fetch the latest console output directly to the response for easy debugging via curl
         return Response.ok(
-          jsonEncode({'success': true, 'printed': items.length}),
+          jsonEncode({
+            'success': printResult['exitCode'] == 0,
+            'printed': items.length,
+            'exitCode': printResult['exitCode'],
+            'stdout': printResult['stdout'],
+            'stderr': printResult['stderr'],
+            'message': printResult['exitCode'] == 0 ? 'Print command sent successfully' : 'Print command failed on Windows',
+          }),
           headers: {'content-type': 'application/json'},
         );
       } catch (error) {
@@ -206,21 +214,18 @@ REFERENCE 0,0
     return [line1, line2];
   }
 
-  Future<int> sendToPrinter(String tspl) async {
+  Future<Map<String, dynamic>> sendToPrinter(String tspl) async {
     if (!Platform.isWindows) {
       print("Warning: Skipping physical print because OS is not Windows.");
       print("TSPL Generated:\\n$tspl");
-      return 0;
+      return {'exitCode': 0, 'stdout': 'Skipped (Not Windows)', 'stderr': ''};
     }
 
     try {
-      // Create a temporary file in the system temp directory
       final tempDir = Directory.systemTemp;
       final tempFile = File('${tempDir.path}\\temp_label_${DateTime.now().millisecondsSinceEpoch}.tspl');
       await tempFile.writeAsString(tspl);
 
-      // We MUST use cmd /c copy /b because that's how Windows accurately sends raw TSPL commands to printer shares.
-      // We wrap the temp file path in quotes in case the user's Temp folder path contains spaces.
       final result = await Process.run('cmd', [
         '/c',
         'copy',
@@ -229,7 +234,6 @@ REFERENCE 0,0
         r'\\localhost\bacode',
       ]);
       
-      // Clean up the temporary file immediately
       if (await tempFile.exists()) {
         await tempFile.delete();
       }
@@ -239,10 +243,14 @@ REFERENCE 0,0
       if (result.stderr.toString().isNotEmpty) {
         print('Print stderr: ${result.stderr}');
       }
-      return result.exitCode;
+      return {
+        'exitCode': result.exitCode,
+        'stdout': result.stdout.toString().trim(),
+        'stderr': result.stderr.toString().trim(),
+      };
     } catch (e) {
       print('Printer error: $e');
-      return -1;
+      return {'exitCode': -1, 'stdout': '', 'stderr': e.toString()};
     }
   }
 }
