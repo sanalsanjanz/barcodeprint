@@ -2,11 +2,19 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:system_tray/system_tray.dart';
+import 'package:launch_at_startup/launch_at_startup.dart';
 import 'server/print_server.dart';
 import 'ui/dashboard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Setup auto-start on Windows boot
+  launchAtStartup.setup(
+    appName: 'BillEntriBarcodeService',
+    appPath: Platform.resolvedExecutable,
+  );
+  await launchAtStartup.enable();
 
   // Initialize window manager
   await windowManager.ensureInitialized();
