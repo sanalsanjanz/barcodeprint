@@ -20,6 +20,26 @@ void main() async {
     print('Warning: Failed to configure launch at startup: $e');
   }
 
+  // Start the HTTP Print Server before UI
+  final printServer = PrintServer(port: 5050);
+  
+  // Retry mechanism for server startup
+  bool serverStarted = false;
+  int retryCount = 0;
+  while (!serverStarted && retryCount < 5) {
+    try {
+      await printServer.start();
+      serverStarted = true;
+      print('Print server started successfully.');
+    } catch (e) {
+      retryCount++;
+      print('Failed to start print server (attempt $retryCount): $e');
+      if (retryCount < 5) {
+        await Future.delayed(const Duration(seconds: 2));
+      }
+    }
+  }
+
   // Initialize window manager
   await windowManager.ensureInitialized();
 
@@ -30,18 +50,10 @@ void main() async {
     titleBarStyle: TitleBarStyle.normal,
   );
 
-  await windowManager.waitUntilReadyToShow(windowOptions, () async {
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
   });
-
-  // Start the HTTP Print Server
-  final printServer = PrintServer(port: 5050);
-  try {
-    await printServer.start();
-  } catch (e) {
-    print('Failed to start print server (port might be in use): $e');
-  }
 
   runApp(MyApp(printServer: printServer));
 }
