@@ -13,12 +13,27 @@ class PrintItem {
   final double price;
   final String currency;
 
+  final double marginLeft;
+  final double marginTop;
+  final double marginRight;
+  final double marginBottom;
+  final double rowGap;
+  final double columnGap;
+  final int barcodeRow;
+
   PrintItem({
     required this.companyName,
     required this.itemName,
     required this.barcode,
     required this.price,
     required this.currency,
+    this.marginLeft = 0.0,
+    this.marginTop = 0.0,
+    this.marginRight = 0.0,
+    this.marginBottom = 0.0,
+    this.rowGap = 0.0,
+    this.columnGap = 0.0,
+    this.barcodeRow = 1,
   });
 
   factory PrintItem.fromJson(Map<String, dynamic> json) {
@@ -28,6 +43,13 @@ class PrintItem {
       barcode: json['barcode'] ?? '',
       price: (json['price'] ?? 0).toDouble(),
       currency: json['currency'] ?? '',
+      marginLeft: (json['marginLeft'] ?? 0).toDouble(),
+      marginTop: (json['marginTop'] ?? 0).toDouble(),
+      marginRight: (json['marginRight'] ?? 0).toDouble(),
+      marginBottom: (json['marginBottom'] ?? 0).toDouble(),
+      rowGap: (json['rowGap'] ?? 0).toDouble(),
+      columnGap: (json['columnGap'] ?? 0).toDouble(),
+      barcodeRow: json['barcodeRow'] ?? 1,
     );
   }
 }
@@ -84,61 +106,12 @@ REFERENCE 0,0
           tspl += '\nCLS\n';
 
           // LEFT LABEL
-          final leftCompany = left.companyName.length > 25
-              ? left.companyName.substring(0, 25)
-              : left.companyName;
-          final leftSplit = splitText(left.itemName, 16);
-          final leftName1 = leftSplit[0];
-          final leftName2 = leftSplit[1];
-          final leftPrice = '${left.currency} ${left.price}';
-
-          tspl +=
-              'TEXT ${getCenteredX(leftCompany, false, "2")},10,"2",0,1,1,"$leftCompany"\n';
-          tspl += 'BAR 15,35,280,2\n';
-          tspl += 'TEXT 15,45,"3",0,1,1,"$leftName1"\n';
-          tspl += 'TEXT 16,45,"3",0,1,1,"$leftName1"\n';
-
-          int leftNextY = 75;
-          int leftBarcodeHeight = 55;
-          if (leftName2.isNotEmpty) {
-            tspl += 'TEXT 15,75,"2",0,1,1,"$leftName2"\n';
-            leftNextY = 100;
-            leftBarcodeHeight = 40;
-          }
-          tspl +=
-              'BARCODE ${155 - 130},$leftNextY,"128",$leftBarcodeHeight,1,0,2,2,"${left.barcode}"\n';
-          final leftPriceX = getRightAlignedX(leftPrice, false, "3");
-          tspl += 'TEXT $leftPriceX,155,"3",0,1,1,"$leftPrice"\n';
-          tspl += 'TEXT ${leftPriceX + 1},155,"3",0,1,1,"$leftPrice"\n';
+          tspl += generateLabelTspl(left, 0);
 
           // RIGHT LABEL
           if (right != null) {
-            final rightCompany = right.companyName.length > 25
-                ? right.companyName.substring(0, 25)
-                : right.companyName;
-            final rightSplit = splitText(right.itemName, 16);
-            final rightName1 = rightSplit[0];
-            final rightName2 = rightSplit[1];
-            final rightPrice = '${right.currency} ${right.price}';
-
-            tspl +=
-                'TEXT ${getCenteredX(rightCompany, true, "2")},10,"2",0,1,1,"$rightCompany"\n';
-            tspl += 'BAR 325,35,280,2\n';
-            tspl += 'TEXT 325,45,"3",0,1,1,"$rightName1"\n';
-            tspl += 'TEXT 326,45,"3",0,1,1,"$rightName1"\n';
-
-            int rightNextY = 75;
-            int rightBarcodeHeight = 55;
-            if (rightName2.isNotEmpty) {
-              tspl += 'TEXT 325,75,"2",0,1,1,"$rightName2"\n';
-              rightNextY = 100;
-              rightBarcodeHeight = 40;
-            }
-            tspl +=
-                'BARCODE ${465 - 130},$rightNextY,"128",$rightBarcodeHeight,1,0,2,2,"${right.barcode}"\n';
-            final rightPriceX = getRightAlignedX(rightPrice, true, "3");
-            tspl += 'TEXT $rightPriceX,155,"3",0,1,1,"$rightPrice"\n';
-            tspl += 'TEXT ${rightPriceX + 1},155,"3",0,1,1,"$rightPrice"\n';
+            final rightOffsetX = 310 + right.columnGap.toInt();
+            tspl += generateLabelTspl(right, rightOffsetX);
           }
 
           tspl += 'PRINT 1\n';
@@ -187,19 +160,51 @@ REFERENCE 0,0
     return fontSize == "3" ? 16 : 11;
   }
 
-  int getCenteredX(String text, bool isRightLabel, String fontSize) {
+  int getCenteredX(String text, int centerX, String fontSize) {
     final textWidth = text.length * getCharWidth(fontSize);
-    final centerTarget = isRightLabel ? 465 : 155;
-    final startX = (centerTarget - textWidth / 2).floor();
-    return (isRightLabel ? 320 : 10) > startX
-        ? (isRightLabel ? 320 : 10)
-        : startX;
+    return (centerX - textWidth / 2).floor();
   }
 
-  int getRightAlignedX(String text, bool isRightLabel, String fontSize) {
-    final textWidth = text.length * getCharWidth(fontSize);
-    final rightEdgeTarget = isRightLabel ? 605 : 295;
-    return (rightEdgeTarget - textWidth).floor();
+  String generateLabelTspl(PrintItem item, int startX) {
+    StringBuffer buf = StringBuffer();
+    final centerX = startX + 155 + item.marginLeft.toInt();
+    int currentY = 10 + item.marginTop.toInt();
+
+    // 1. Company Name
+    final companyName = item.companyName;
+    buf.write('TEXT ${getCenteredX(companyName, centerX, "3")},$currentY,"3",0,1,1,"$companyName"\\n');
+    currentY += 30 + item.rowGap.toInt();
+
+    // 2. Item Name
+    final nameLines = splitText(item.itemName, 24);
+    for (var line in nameLines) {
+      if (line.isNotEmpty) {
+        buf.write('TEXT ${getCenteredX(line, centerX, "2")},$currentY,"2",0,1,1,"$line"\\n');
+        currentY += 22 + item.rowGap.toInt();
+      }
+    }
+
+    // 3. Barcode
+    int barcodeHeight = 45;
+    int narrow = item.barcode.length > 10 ? 1 : 2;
+    int wide = 2;
+    int estWidth = (11 * item.barcode.length + 35) * narrow;
+    int barcodeX = centerX - (estWidth ~/ 2);
+    if (barcodeX < startX + 10) barcodeX = startX + 10;
+    
+    currentY += 5; // Padding before barcode
+    buf.write('BARCODE $barcodeX,$currentY,"128",$barcodeHeight,0,0,$narrow,$wide,"${item.barcode}"\\n');
+    currentY += barcodeHeight + 8;
+
+    // 4. Barcode Text
+    buf.write('TEXT ${getCenteredX(item.barcode, centerX, "2")},$currentY,"2",0,1,1,"${item.barcode}"\\n');
+    currentY += 20 + item.rowGap.toInt();
+
+    // 5. Price
+    final priceStr = '${item.currency}:${item.price.toStringAsFixed(3)}'; 
+    buf.write('TEXT ${getCenteredX(priceStr, centerX, "2")},$currentY,"2",0,1,1,"$priceStr"\\n');
+
+    return buf.toString();
   }
 
   List<String> splitText(String text, int maxLength) {

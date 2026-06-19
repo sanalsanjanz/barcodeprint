@@ -43,7 +43,7 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WindowListener {
   final AppWindow _appWindow = AppWindow();
   final SystemTray _systemTray = SystemTray();
   final Menu _menu = Menu();
@@ -51,7 +51,20 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    windowManager.addListener(this);
+    _initPreventClose();
     initSystemTray();
+  }
+
+  Future<void> _initPreventClose() async {
+    await windowManager.setPreventClose(true);
+  }
+
+  @override
+  void onWindowClose() async {
+    // When the user clicks the X button, hide the window instead of killing the app
+    await windowManager.hide();
+    await windowManager.setSkipTaskbar(true);
   }
 
   Future<void> initSystemTray() async {
@@ -125,6 +138,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    windowManager.removeListener(this);
     widget.printServer.stop();
     super.dispose();
   }
