@@ -9,7 +9,61 @@ import 'ui/dashboard.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Setup auto-start on Windows boot (wrapped in try-catch so it doesn't crash if OS denies permission)
+  // Initialize window manager early so the window can appear immediately.
+  await windowManager.ensureInitialized();
+
+  final WindowOptions windowOptions = const WindowOptions(
+    size: Size(1000, 700),
+    center: true,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.normal,
+  );
+
+  // Show the window right away – don't block on server startup.
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
+
+  // Setup auto-start (fire-and-forget – not on the critical path).
+  _setupLaunchAtStartup();
+
+  // Create the server instance and a notifier the UI can listen to.
+  final printServer = PrintServer(port: 5050);
+  final serverState = ValueNotifier<ServerReadyState>(ServerReadyState.starting);
+
+  // Launch the UI immediately with the loading state.
+  runApp(MyApp(printServer: printServer, serverState: serverState));
+
+  // Start the server in the background; update the notifier when done.
+  _startServerInBackground(printServer, serverState);
+}
+
+/// Starts the HTTP server with retries without blocking the UI.
+Future<void> _startServerInBackground(
+  PrintServer server,
+  ValueNotifier<ServerReadyState> state,
+) async {
+  int retryCount = 0;
+  while (retryCount < 30) {
+    try {
+      await server.start();
+      print('Print server started successfully.');
+      state.value = ServerReadyState.ready;
+      return;
+    } catch (e) {
+      retryCount++;
+      print('Failed to start print server (attempt $retryCount): $e');
+      if (retryCount < 30) {
+        await Future.delayed(const Duration(seconds: 2));
+      }
+    }
+  }
+  state.value = ServerReadyState.failed;
+}
+
+/// Fire-and-forget – runs after the window is already visible.
+void _setupLaunchAtStartup() async {
   try {
     launchAtStartup.setup(
       appName: 'BillEntriBarcodeService',
@@ -19,49 +73,18 @@ void main() async {
   } catch (e) {
     print('Warning: Failed to configure launch at startup: $e');
   }
-
-  // Start the HTTP Print Server before UI
-  final printServer = PrintServer(port: 5050);
-  
-  // Retry mechanism for server startup
-  bool serverStarted = false;
-  int retryCount = 0;
-  while (!serverStarted && retryCount < 30) {
-    try {
-      await printServer.start();
-      serverStarted = true;
-      print('Print server started successfully.');
-    } catch (e) {
-      retryCount++;
-      print('Failed to start print server (attempt $retryCount): $e');
-      if (retryCount < 30) {
-        await Future.delayed(const Duration(seconds: 2));
-      }
-    }
-  }
-
-  // Initialize window manager
-  await windowManager.ensureInitialized();
-
-  WindowOptions windowOptions = const WindowOptions(
-    size: Size(1000, 700),
-    center: true,
-    skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.normal,
-  );
-
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
-  });
-
-  runApp(MyApp(printServer: printServer));
 }
+
+enum ServerReadyState { starting, ready, failed }
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class MyApp extends StatefulWidget {
   final PrintServer printServer;
+  final ValueNotifier<ServerReadyState> serverState;
 
-  const MyApp({Key? key, required this.printServer}) : super(key: key);
+  const MyApp({Key? key, required this.printServer, required this.serverState})
+    : super(key: key);
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -86,26 +109,25 @@ class _MyAppState extends State<MyApp> with WindowListener {
 
   @override
   void onWindowClose() async {
-    // When the user clicks the X button, hide the window instead of killing the app
+    // When the user clicks the X button, hide to tray instead of quitting.
     await windowManager.hide();
     await windowManager.setSkipTaskbar(true);
   }
 
   Future<void> initSystemTray() async {
-    String path = Platform.isWindows ? 'assets/app_icon.ico' : 'assets/app_icon.png';
-    
-    // We try to initialize with icon but if asset not present it might fail. 
-    // Usually we need an actual icon in assets. Let's provide a dummy path or use empty for now.
-    // In production, ensure you add assets/app_icon.ico and add to pubspec.yaml
-    
+    String path =
+        Platform.isWindows ? 'assets/app_icon.ico' : 'assets/app_icon.png';
+
     try {
       await _systemTray.initSystemTray(
         title: "BillEntri Print Server",
-        iconPath: '', // Will show default if empty or fallback
+        iconPath: '',
         toolTip: "BillEntri Print Server Running",
       );
     } catch (e) {
-      print('Warning: System tray failed to initialize (likely due to missing iconPath): $e');
+      print(
+        'Warning: System tray failed to initialize (likely due to missing iconPath): $e',
+      );
     }
 
     await _menu.buildFrom([
@@ -156,7 +178,18 @@ class _MyAppState extends State<MyApp> with WindowListener {
         primaryColor: const Color(0xFF016F42),
         fontFamily: 'Inter',
       ),
-      home: DashboardScreen(port: widget.printServer.port, localIp: widget.printServer.localIp ?? '127.0.0.1'),
+      home: ValueListenableBuilder<ServerReadyState>(
+        valueListenable: widget.serverState,
+        builder: (context, state, _) {
+          if (state == ServerReadyState.ready) {
+            return DashboardScreen(
+              port: widget.printServer.port,
+              localIp: widget.printServer.localIp ?? '127.0.0.1',
+            );
+          }
+          return _StartingScreen(failed: state == ServerReadyState.failed);
+        },
+      ),
     );
   }
 
@@ -165,5 +198,78 @@ class _MyAppState extends State<MyApp> with WindowListener {
     windowManager.removeListener(this);
     widget.printServer.stop();
     super.dispose();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Shown immediately while the HTTP server is binding in the background.
+class _StartingScreen extends StatefulWidget {
+  final bool failed;
+  const _StartingScreen({this.failed = false});
+
+  @override
+  State<_StartingScreen> createState() => _StartingScreenState();
+}
+
+class _StartingScreenState extends State<_StartingScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const brandColor = Color(0xFF016F42);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.failed)
+              const Icon(Icons.error_outline, color: Colors.red, size: 56)
+            else
+              SizedBox(
+                width: 56,
+                height: 56,
+                child: CircularProgressIndicator(
+                  valueColor: _controller.drive(
+                    ColorTween(begin: brandColor, end: brandColor),
+                  ),
+                  strokeWidth: 3,
+                  color: brandColor,
+                ),
+              ),
+            const SizedBox(height: 24),
+            Text(
+              widget.failed
+                  ? 'Failed to start server.\nPlease restart the application.'
+                  : 'Starting BillEntri Print Server…',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Color(0xFF374151),
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
