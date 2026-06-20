@@ -40,6 +40,9 @@ void main() async {
 }
 
 /// Starts the HTTP server with retries without blocking the UI.
+/// If the port is already bound (a previous instance is still running in the
+/// system tray), we skip trying to start a new server and go straight to the
+/// dashboard – the existing server is already healthy.
 Future<void> _startServerInBackground(
   PrintServer server,
   ValueNotifier<ServerReadyState> state,
@@ -52,6 +55,17 @@ Future<void> _startServerInBackground(
       state.value = ServerReadyState.ready;
       return;
     } catch (e) {
+      // ── Port already in use ──────────────────────────────────────────────
+      // A previous instance is running in the system tray and already owns
+      // the port.  The server is healthy – just reuse it.
+      if (_isAddressInUse(e)) {
+        print('Port already bound by a previous instance – reusing existing server.');
+        // Populate localIp so the dashboard shows the correct address.
+        server.localIp = await PrintServer.getLocalIpAddress();
+        state.value = ServerReadyState.ready;
+        return;
+      }
+
       retryCount++;
       print('Failed to start print server (attempt $retryCount): $e');
       if (retryCount < 30) {
@@ -60,6 +74,22 @@ Future<void> _startServerInBackground(
     }
   }
   state.value = ServerReadyState.failed;
+}
+
+/// Returns true when [e] indicates the TCP port is already occupied.
+bool _isAddressInUse(Object e) {
+  if (e is SocketException) {
+    final msg = e.message.toLowerCase();
+    final code = e.osError?.errorCode ?? 0;
+    // WSAEADDRINUSE = 10048 (Windows), EADDRINUSE = 98 (Linux), 48 (macOS)
+    if (code == 10048 || code == 98 || code == 48) return true;
+    if (msg.contains('address already in use') ||
+        msg.contains('only one usage of each socket')) return true;
+  }
+  // Fallback: check the string representation
+  final str = e.toString().toLowerCase();
+  return str.contains('address already in use') ||
+      str.contains('only one usage of each socket');
 }
 
 /// Fire-and-forget – runs after the window is already visible.
